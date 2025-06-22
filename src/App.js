@@ -3,7 +3,7 @@ import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import AuthModal from './components/AuthModal';
 import { loadUserData, saveUserData, syncData } from './utils/cloudStorage';
-import { onAuthChange, getCurrentUser, logOut } from './firebase/authService';
+import { onAuthChange, logOut } from './firebase/authService';
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);

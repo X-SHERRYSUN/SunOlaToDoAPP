@@ -3,7 +3,6 @@ import { getCurrentUser } from '../firebase/authService';
 import { 
   getUserData as getFirestoreData, 
   saveUserData as saveFirestoreData,
-  updateUserData as updateFirestoreData,
   migrateLocalDataToCloud 
 } from '../firebase/firestoreService';
 import { 
