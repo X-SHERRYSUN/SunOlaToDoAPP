@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const Login = ({ onLogin }) => {
+const Login = ({ onLogin, onShowCloudAuth }) => {
   const [password, setPassword] = useState('');
   const [selectedUser, setSelectedUser] = useState('');
   const [error, setError] = useState('');
@@ -75,6 +75,23 @@ const Login = ({ onLogin }) => {
 
         {error && <div className="error">{getErrorMessage(error)}</div>}
       </form>
+
+      <div className="cloud-section">
+        <div className="divider">
+          <span>或</span>
+        </div>
+        <button 
+          type="button" 
+          className="cloud-btn"
+          onClick={onShowCloudAuth}
+        >
+          <span>☁️</span>
+          啟用雲端同步
+        </button>
+        <p className="cloud-info">
+          使用雲端同步功能，資料將自動備份至雲端，可在多個裝置間同步
+        </p>
+      </div>
     </div>
   );
 };
