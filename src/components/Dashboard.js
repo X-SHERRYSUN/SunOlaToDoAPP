@@ -11,14 +11,15 @@ import {
   processMonthlySettlement,
   getGMT8Date
 } from '../utils/storage';
+import { forceSyncFromCloud } from '../utils/cloudStorage';
 
-const Dashboard = ({ currentUser, userData, firebaseUser, onLogout, onUpdateData, onShowCloudAuth }) => {
+const Dashboard = ({ currentUser, userData, firebaseUser, onLogout, onUpdateData, onShowCloudAuth, isCloudSyncEnabled }) => {
   const [currentDate, setCurrentDate] = useState(getGMT8Date());
   const [currentStreak, setCurrentStreak] = useState(0);
   const [monthlyStreak, setMonthlyStreak] = useState(0);
   const [currentView, setCurrentView] = useState('personal'); // 'personal', 'overview', or 'history'
-
   const [totalRewards, setTotalRewards] = useState(0);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     if (userData && currentUser) {
@@ -47,8 +48,6 @@ const Dashboard = ({ currentUser, userData, firebaseUser, onLogout, onUpdateData
     }
   }, [userData, currentUser, onUpdateData]);
 
-
-
   const handleDateSelect = (date) => {
     setCurrentDate(date);
   };
@@ -73,7 +72,29 @@ const Dashboard = ({ currentUser, userData, firebaseUser, onLogout, onUpdateData
   const currentDateStr = formatDate(currentDate);
   const currentTodos = userData?.[currentUser]?.todos?.[currentDateStr] || [];
 
-
+  const handleForceSync = async () => {
+    if (!firebaseUser || !navigator.onLine) return;
+    
+    setIsSyncing(true);
+    try {
+      const result = await forceSyncFromCloud();
+      if (result.error) {
+        console.error('Force sync failed:', result.error);
+        alert('同步失敗: ' + result.error);
+      } else {
+        console.log('Force sync successful');
+        if (result.data) {
+          onUpdateData(result.data);
+        }
+        alert('資料同步成功！');
+      }
+    } catch (error) {
+      console.error('Force sync error:', error);
+      alert('同步過程中發生錯誤');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   if (currentView === 'overview') {
     return (
@@ -89,9 +110,26 @@ const Dashboard = ({ currentUser, userData, firebaseUser, onLogout, onUpdateData
               </button>
             )}
             {firebaseUser && (
-              <div className="cloud-status online">
-                <div className="cloud-indicator"></div>
-                {firebaseUser.email || '訪客模式'}
+              <div className="cloud-status-container">
+                <div className={`cloud-status ${isCloudSyncEnabled ? 'online' : 'offline'}`}>
+                  <div className="cloud-indicator"></div>
+                  <span className="cloud-text">
+                    {isCloudSyncEnabled ? '雲端同步中' : '離線模式'}
+                  </span>
+                  <small className="cloud-email">
+                    {firebaseUser.email || '訪客'}
+                  </small>
+                </div>
+                {isCloudSyncEnabled && (
+                  <button 
+                    className={`manual-sync-btn ${isSyncing ? 'syncing' : ''}`}
+                    onClick={handleForceSync}
+                    disabled={isSyncing}
+                    title="手動同步資料"
+                  >
+                    {isSyncing ? '🔄' : '↻'}
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -135,9 +173,26 @@ const Dashboard = ({ currentUser, userData, firebaseUser, onLogout, onUpdateData
               </button>
             )}
             {firebaseUser && (
-              <div className="cloud-status online">
-                <div className="cloud-indicator"></div>
-                {firebaseUser.email || '訪客模式'}
+              <div className="cloud-status-container">
+                <div className={`cloud-status ${isCloudSyncEnabled ? 'online' : 'offline'}`}>
+                  <div className="cloud-indicator"></div>
+                  <span className="cloud-text">
+                    {isCloudSyncEnabled ? '雲端同步中' : '離線模式'}
+                  </span>
+                  <small className="cloud-email">
+                    {firebaseUser.email || '訪客'}
+                  </small>
+                </div>
+                {isCloudSyncEnabled && (
+                  <button 
+                    className={`manual-sync-btn ${isSyncing ? 'syncing' : ''}`}
+                    onClick={handleForceSync}
+                    disabled={isSyncing}
+                    title="手動同步資料"
+                  >
+                    {isSyncing ? '🔄' : '↻'}
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -180,9 +235,26 @@ const Dashboard = ({ currentUser, userData, firebaseUser, onLogout, onUpdateData
             </button>
           )}
           {firebaseUser && (
-            <div className="cloud-status online">
-              <div className="cloud-indicator"></div>
-              {firebaseUser.email || '訪客模式'}
+            <div className="cloud-status-container">
+              <div className={`cloud-status ${isCloudSyncEnabled ? 'online' : 'offline'}`}>
+                <div className="cloud-indicator"></div>
+                <span className="cloud-text">
+                  {isCloudSyncEnabled ? '雲端同步中' : '離線模式'}
+                </span>
+                <small className="cloud-email">
+                  {firebaseUser.email || '訪客'}
+                </small>
+              </div>
+              {isCloudSyncEnabled && (
+                <button 
+                  className={`manual-sync-btn ${isSyncing ? 'syncing' : ''}`}
+                  onClick={handleForceSync}
+                  disabled={isSyncing}
+                  title="手動同步資料"
+                >
+                  {isSyncing ? '🔄' : '↻'}
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -193,21 +265,20 @@ const Dashboard = ({ currentUser, userData, firebaseUser, onLogout, onUpdateData
           >
             我的打卡
           </button>
-                      <button 
-              className={`view-btn ${currentView === 'overview' ? 'active' : ''}`}
-              onClick={() => setCurrentView('overview')}
-            >
-              瞧瞧妳的
-            </button>
-                        <button 
-              className={`view-btn ${currentView === 'history' ? 'active' : ''}`}
-              onClick={() => setCurrentView('history')}
-            >
-              歷史記錄
-            </button>
-          </div>
-          <h1>Sun&Ola打卡紀錄</h1>
-        
+          <button 
+            className={`view-btn ${currentView === 'overview' ? 'active' : ''}`}
+            onClick={() => setCurrentView('overview')}
+          >
+            瞧瞧妳的
+          </button>
+          <button 
+            className={`view-btn ${currentView === 'history' ? 'active' : ''}`}
+            onClick={() => setCurrentView('history')}
+          >
+            歷史記錄
+          </button>
+        </div>
+        <h1>Sun&Ola打卡紀錄</h1>
         <div className="streak-info">
           <div>
             <div className="streak-number">{currentStreak}</div>
@@ -222,8 +293,6 @@ const Dashboard = ({ currentUser, userData, firebaseUser, onLogout, onUpdateData
             <div className="rewards-label">累積獎勵</div>
           </div>
         </div>
-
-
 
         {/* Streak Calendar View */}
         <div className="calendar-section">

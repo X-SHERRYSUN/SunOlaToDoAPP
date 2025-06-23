@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import AuthModal from './components/AuthModal';
-import { loadUserData, saveUserData, syncData } from './utils/cloudStorage';
+import { loadUserData, saveUserData, syncData, setupRealtimeListener, isCloudEnabled } from './utils/cloudStorage';
 import { onAuthChange, logOut } from './firebase/authService';
 
 function App() {
@@ -12,6 +12,7 @@ function App() {
   const [firebaseUser, setFirebaseUser] = useState(null);
   const [showCloudAuth, setShowCloudAuth] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [realtimeUnsubscribe, setRealtimeUnsubscribe] = useState(null);
 
   useEffect(() => {
     // Listen to Firebase auth state changes
@@ -21,7 +22,27 @@ function App() {
       if (user) {
         // User is signed in to Firebase
         console.log('Firebase user signed in:', user.email || 'Anonymous');
-        await syncData(); // Sync data when user signs in
+        
+        // Set up real-time listener for this user's data
+        const realtimeUnsub = await setupRealtimeListener(user.uid, (data) => {
+          console.log('Real-time data update received:', data);
+          setUserData(data);
+        });
+        
+        // Clean up previous listener if exists
+        if (realtimeUnsubscribe) {
+          realtimeUnsubscribe();
+        }
+        setRealtimeUnsubscribe(() => realtimeUnsub);
+        
+        // Load initial data
+        await loadUserDataAsync();
+      } else {
+        // User signed out, clean up real-time listener
+        if (realtimeUnsubscribe) {
+          realtimeUnsubscribe();
+          setRealtimeUnsubscribe(null);
+        }
       }
       
       setIsLoading(false);
@@ -37,7 +58,12 @@ function App() {
       setIsLoading(false);
     }
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (realtimeUnsubscribe) {
+        realtimeUnsubscribe();
+      }
+    };
   }, []);
 
   const loadUserDataAsync = async () => {
@@ -53,7 +79,12 @@ function App() {
     setCurrentUser(user);
     setIsLoggedIn(true);
     localStorage.setItem('currentUser', user);
-    await loadUserDataAsync();
+    
+    // If user is authenticated with Firebase, the real-time listener will handle data loading
+    // Otherwise, load from local storage
+    if (!firebaseUser) {
+      await loadUserDataAsync();
+    }
   };
 
   const handleLogout = async () => {
@@ -62,6 +93,12 @@ function App() {
     localStorage.removeItem('currentUser');
     setUserData(null);
     
+    // Clean up real-time listener
+    if (realtimeUnsubscribe) {
+      realtimeUnsubscribe();
+      setRealtimeUnsubscribe(null);
+    }
+    
     // Also sign out from Firebase if signed in
     if (firebaseUser) {
       await logOut();
@@ -69,14 +106,32 @@ function App() {
   };
 
   const updateUserData = async (newData) => {
+    // Optimistically update local state for better UX
     setUserData(newData);
+    
+    // Save to cloud/local storage
     await saveUserData(newData);
   };
 
   const handleCloudAuthSuccess = async (user) => {
     setFirebaseUser(user);
     setShowCloudAuth(false);
+    
+    // Set up real-time listener for the newly authenticated user
+    const realtimeUnsub = await setupRealtimeListener(user.uid, (data) => {
+      console.log('Real-time data update received:', data);
+      setUserData(data);
+    });
+    
+    // Clean up previous listener if exists
+    if (realtimeUnsubscribe) {
+      realtimeUnsubscribe();
+    }
+    setRealtimeUnsubscribe(() => realtimeUnsub);
+    
+    // Sync data after authentication
     await syncData();
+    await loadUserDataAsync();
   };
 
   if (isLoading) {
@@ -99,6 +154,7 @@ function App() {
           onLogout={handleLogout}
           onUpdateData={updateUserData}
           onShowCloudAuth={() => setShowCloudAuth(true)}
+          isCloudSyncEnabled={isCloudEnabled()}
         />
       )}
       
