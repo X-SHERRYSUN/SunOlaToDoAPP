@@ -1,5 +1,5 @@
 // Cloud Storage utility functions - combines localStorage with Firebase
-import { getCurrentUser } from '../firebase/authService';
+import { getCurrentUser, getCurrentUsername } from '../firebase/authService';
 import { 
   getUserData as getFirestoreData, 
   saveUserData as saveFirestoreData,
@@ -35,13 +35,14 @@ export const isCloudEnabled = () => {
 };
 
 // Set up real-time listener for user data
-export const setupRealtimeListener = async (userId, callback) => {
+export const setupRealtimeListener = async (userId, callback, username = null) => {
   if (!userId || !navigator.onLine) {
     console.warn('Cannot set up realtime listener: user not authenticated or offline');
     return null;
   }
 
   try {
+    const currentUsername = username || getCurrentUsername();
     const unsubscribe = listenToUserData(userId, ({ data, error }) => {
       if (error) {
         console.error('Real-time listener error:', error);
@@ -54,9 +55,9 @@ export const setupRealtimeListener = async (userId, callback) => {
         // Call the callback with the updated data
         callback(data);
       }
-    });
+    }, currentUsername);
 
-    console.log('Real-time listener set up for user:', userId);
+    console.log('Real-time listener set up for user:', userId, 'username:', currentUsername);
     return unsubscribe;
   } catch (error) {
     console.error('Failed to set up real-time listener:', error);
@@ -67,11 +68,12 @@ export const setupRealtimeListener = async (userId, callback) => {
 // Load user data (cloud first, fallback to local)
 export const loadUserData = async () => {
   const user = getCurrentUser();
+  const username = getCurrentUsername();
   
   if (user && navigator.onLine) {
     try {
-      console.log('Loading data from cloud for user:', user.uid);
-      const { data: cloudData, error } = await getFirestoreData(user.uid);
+      console.log('Loading data from cloud for user:', user.uid, 'username:', username);
+      const { data: cloudData, error } = await getFirestoreData(user.uid, username);
       
       if (!error && cloudData) {
         console.log('Cloud data loaded successfully');
@@ -94,6 +96,7 @@ export const loadUserData = async () => {
 // Save user data (both cloud and local)
 export const saveUserData = async (data) => {
   const user = getCurrentUser();
+  const username = getCurrentUsername();
   
   // Always save to localStorage first (for offline support)
   saveLocalData(data);
@@ -101,8 +104,8 @@ export const saveUserData = async (data) => {
   // Save to cloud if authenticated and online
   if (user && navigator.onLine) {
     try {
-      console.log('Saving data to cloud for user:', user.uid);
-      const { error } = await saveFirestoreData(user.uid, data);
+      console.log('Saving data to cloud for user:', user.uid, 'username:', username);
+      const { error } = await saveFirestoreData(user.uid, data, username);
       if (error) {
         console.warn('Failed to save to cloud:', error);
       } else {
@@ -138,7 +141,7 @@ export const migrateToCloud = async () => {
     if (!result.error) {
       console.log('Migration successful');
       // After successful migration, load fresh cloud data
-      const { data: cloudData } = await getFirestoreData(user.uid);
+      const { data: cloudData } = await getFirestoreData(user.uid, getCurrentUsername());
       if (cloudData) {
         saveLocalData(cloudData);
       }
@@ -173,13 +176,13 @@ export const migrateFromOldStructure = async () => {
       const oldData = oldUserDoc.data();
       
       // Get current shared data
-      const { data: sharedData } = await getFirestoreData(user.uid);
+      const { data: sharedData } = await getFirestoreData(user.uid, getCurrentUsername());
       
       // Merge old data with shared data
       const mergedData = mergeUserData(sharedData || getDefaultCloudData(), oldData);
       
       // Save to shared document
-      await saveFirestoreData(user.uid, mergedData);
+      await saveFirestoreData(user.uid, mergedData, getCurrentUsername());
       
       console.log('Migration completed successfully');
       return { data: mergedData, error: null };
@@ -252,7 +255,7 @@ export const syncData = async () => {
   try {
     console.log('Syncing data for user:', user.uid);
     const localData = loadLocalData();
-    const { data: cloudData, error } = await getFirestoreData(user.uid);
+    const { data: cloudData, error } = await getFirestoreData(user.uid, getCurrentUsername());
     
     if (error) {
       console.warn('Failed to sync data:', error);
@@ -274,7 +277,7 @@ export const syncData = async () => {
       // Local data is newer, but we need to merge carefully to avoid overwriting other user's data
       console.log('Local data is newer, merging with cloud data');
       const mergedData = mergeUserData(cloudData, localData);
-      await saveFirestoreData(user.uid, mergedData);
+      await saveFirestoreData(user.uid, mergedData, getCurrentUsername());
       saveLocalData(mergedData);
     } else if (cloudTimestamp > localTimestamp) {
       // Cloud data is newer, download to local
@@ -297,7 +300,7 @@ export const forceSyncFromCloud = async () => {
   
   try {
     console.log('Force syncing from cloud for user:', user.uid);
-    const { data: cloudData, error } = await getFirestoreData(user.uid);
+    const { data: cloudData, error } = await getFirestoreData(user.uid, getCurrentUsername());
     
     if (error) {
       return { error };

@@ -8,22 +8,35 @@ import {
   serverTimestamp 
 } from 'firebase/firestore';
 import { db } from './config';
-import { getCurrentUser } from './authService';
+import { getCurrentUser, getCurrentUsername } from './authService';
 
 // Use a shared document ID for both users
 const SHARED_DOC_ID = 'shared-reward-streaks';
 
-// Get user data from Firestore
-export const getUserData = async (userId) => {
+// Get user data from Firestore for specific user (sun/ola)
+export const getUserData = async (userId, username = null) => {
   try {
-    // Use the shared document instead of user-specific document
     const userDocRef = doc(db, 'shared-data', SHARED_DOC_ID);
     const userDoc = await getDoc(userDocRef);
     
     if (userDoc.exists()) {
-      return { data: userDoc.data(), error: null };
+      const data = userDoc.data();
+      const currentUsername = username || getCurrentUsername();
+      
+      if (currentUsername && data[currentUsername]) {
+        // Return data for specific user
+        return { 
+          data: {
+            [currentUsername]: data[currentUsername],
+            lastUpdated: data.lastUpdated,
+            createdAt: data.createdAt
+          }, 
+          error: null 
+        };
+      }
+      return { data, error: null };
     } else {
-      // Return default data if user document doesn't exist
+      // Return default data if document doesn't exist
       const defaultData = getDefaultCloudData();
       return { data: defaultData, error: null };
     }
@@ -33,15 +46,27 @@ export const getUserData = async (userId) => {
   }
 };
 
-// Save user data to Firestore
-export const saveUserData = async (userId, userData) => {
+// Save user data to Firestore for specific user
+export const saveUserData = async (userId, userData, username = null) => {
   try {
-    // Use the shared document instead of user-specific document
     const userDocRef = doc(db, 'shared-data', SHARED_DOC_ID);
-    await setDoc(userDocRef, {
-      ...userData,
-      lastUpdated: serverTimestamp()
-    }, { merge: true });
+    const currentUsername = username || getCurrentUsername();
+    
+    if (currentUsername && userData[currentUsername]) {
+      // Update only the specific user's data
+      const updateData = {
+        [`${currentUsername}`]: userData[currentUsername],
+        lastUpdated: serverTimestamp()
+      };
+      
+      await setDoc(userDocRef, updateData, { merge: true });
+    } else {
+      // Update full data structure
+      await setDoc(userDocRef, {
+        ...userData,
+        lastUpdated: serverTimestamp()
+      }, { merge: true });
+    }
     
     return { error: null };
   } catch (error) {
@@ -51,14 +76,28 @@ export const saveUserData = async (userId, userData) => {
 };
 
 // Update specific user data fields
-export const updateUserData = async (userId, updates) => {
+export const updateUserData = async (userId, updates, username = null) => {
   try {
-    // Use the shared document instead of user-specific document
     const userDocRef = doc(db, 'shared-data', SHARED_DOC_ID);
-    await updateDoc(userDocRef, {
-      ...updates,
-      lastUpdated: serverTimestamp()
-    });
+    const currentUsername = username || getCurrentUsername();
+    
+    if (currentUsername) {
+      // Create nested update object for specific user
+      const nestedUpdates = {};
+      Object.keys(updates).forEach(key => {
+        if (key !== 'lastUpdated') {
+          nestedUpdates[`${currentUsername}.${key}`] = updates[key];
+        }
+      });
+      nestedUpdates.lastUpdated = serverTimestamp();
+      
+      await updateDoc(userDocRef, nestedUpdates);
+    } else {
+      await updateDoc(userDocRef, {
+        ...updates,
+        lastUpdated: serverTimestamp()
+      });
+    }
     
     return { error: null };
   } catch (error) {
@@ -67,14 +106,28 @@ export const updateUserData = async (userId, updates) => {
   }
 };
 
-// Listen to real-time updates
-export const listenToUserData = (userId, callback) => {
-  // Use the shared document instead of user-specific document
+// Listen to real-time updates for specific user
+export const listenToUserData = (userId, callback, username = null) => {
   const userDocRef = doc(db, 'shared-data', SHARED_DOC_ID);
   
   return onSnapshot(userDocRef, (doc) => {
     if (doc.exists()) {
-      callback({ data: doc.data(), error: null });
+      const data = doc.data();
+      const currentUsername = username || getCurrentUsername();
+      
+      if (currentUsername && data[currentUsername]) {
+        // Return data for specific user
+        callback({ 
+          data: {
+            [currentUsername]: data[currentUsername],
+            lastUpdated: data.lastUpdated,
+            createdAt: data.createdAt
+          }, 
+          error: null 
+        });
+      } else {
+        callback({ data, error: null });
+      }
     } else {
       callback({ data: getDefaultCloudData(), error: null });
     }

@@ -27,8 +27,13 @@ const requiredEnvVars = [
 
 const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
 if (missingEnvVars.length > 0) {
+  console.error('Missing required environment variables:', missingEnvVars);
   throw new Error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
 }
+
+console.log('Firebase configuration loaded successfully');
+console.log('Project ID:', process.env.REACT_APP_FIREBASE_PROJECT_ID);
+console.log('Auth Domain:', process.env.REACT_APP_FIREBASE_AUTH_DOMAIN);
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
@@ -41,5 +46,7 @@ export const auth = getAuth(app);
 
 // Initialize Analytics (optional)
 export const analytics = getAnalytics(app);
+
+console.log('Firebase services initialized successfully');
 
 export default app; 
