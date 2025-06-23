@@ -11,7 +11,7 @@ import {
   processMonthlySettlement,
   getGMT8Date
 } from '../utils/storage';
-import { forceSyncFromCloud } from '../utils/cloudStorage';
+
 
 const Dashboard = ({ currentUser, userData, firebaseUser, onLogout, onUpdateData, onShowCloudAuth, isCloudSyncEnabled }) => {
   const [currentDate, setCurrentDate] = useState(getGMT8Date());
@@ -19,7 +19,7 @@ const Dashboard = ({ currentUser, userData, firebaseUser, onLogout, onUpdateData
   const [monthlyStreak, setMonthlyStreak] = useState(0);
   const [currentView, setCurrentView] = useState('personal'); // 'personal', 'overview', or 'history'
   const [totalRewards, setTotalRewards] = useState(0);
-  const [isSyncing, setIsSyncing] = useState(false);
+
 
   useEffect(() => {
     if (userData && currentUser) {
@@ -72,29 +72,7 @@ const Dashboard = ({ currentUser, userData, firebaseUser, onLogout, onUpdateData
   const currentDateStr = formatDate(currentDate);
   const currentTodos = userData?.[currentUser]?.todos?.[currentDateStr] || [];
 
-  const handleForceSync = async () => {
-    if (!firebaseUser || !navigator.onLine) return;
-    
-    setIsSyncing(true);
-    try {
-      const result = await forceSyncFromCloud();
-      if (result.error) {
-        console.error('Force sync failed:', result.error);
-        alert('同步失敗: ' + result.error);
-      } else {
-        console.log('Force sync successful');
-        if (result.data) {
-          onUpdateData(result.data);
-        }
-        alert('資料同步成功！');
-      }
-    } catch (error) {
-      console.error('Force sync error:', error);
-      alert('同步過程中發生錯誤');
-    } finally {
-      setIsSyncing(false);
-    }
-  };
+
 
   if (currentView === 'overview') {
     return (
@@ -120,16 +98,6 @@ const Dashboard = ({ currentUser, userData, firebaseUser, onLogout, onUpdateData
                     {firebaseUser.email || '訪客'}
                   </small>
                 </div>
-                {isCloudSyncEnabled && (
-                  <button 
-                    className={`manual-sync-btn ${isSyncing ? 'syncing' : ''}`}
-                    onClick={handleForceSync}
-                    disabled={isSyncing}
-                    title="手動同步資料"
-                  >
-                    {isSyncing ? '🔄' : '↻'}
-                  </button>
-                )}
               </div>
             )}
           </div>
@@ -183,16 +151,6 @@ const Dashboard = ({ currentUser, userData, firebaseUser, onLogout, onUpdateData
                     {firebaseUser.email || '訪客'}
                   </small>
                 </div>
-                {isCloudSyncEnabled && (
-                  <button 
-                    className={`manual-sync-btn ${isSyncing ? 'syncing' : ''}`}
-                    onClick={handleForceSync}
-                    disabled={isSyncing}
-                    title="手動同步資料"
-                  >
-                    {isSyncing ? '🔄' : '↻'}
-                  </button>
-                )}
               </div>
             )}
           </div>
@@ -245,16 +203,6 @@ const Dashboard = ({ currentUser, userData, firebaseUser, onLogout, onUpdateData
                   {firebaseUser.email || '訪客'}
                 </small>
               </div>
-              {isCloudSyncEnabled && (
-                <button 
-                  className={`manual-sync-btn ${isSyncing ? 'syncing' : ''}`}
-                  onClick={handleForceSync}
-                  disabled={isSyncing}
-                  title="手動同步資料"
-                >
-                  {isSyncing ? '🔄' : '↻'}
-                </button>
-              )}
             </div>
           )}
         </div>
