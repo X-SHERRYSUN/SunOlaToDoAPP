@@ -133,4 +133,50 @@ A React web app for tracking daily to-do lists and maintaining streak records fo
 
 ## 📞 Support
 
-For issues or questions, please check the browser console for error messages and ensure all dependencies are properly installed. 
+For issues or questions, please check the browser console for error messages and ensure all dependencies are properly installed.
+
+## Setup Instructions
+
+### 1. Clone the repository
+```bash
+git clone https://github.com/X-SHERRYSUN/reward-streaks-app.git
+cd reward-streaks-app
+```
+
+### 2. Install dependencies
+```bash
+npm install
+```
+
+### 3. Firebase Configuration
+1. Create a Firebase project at [Firebase Console](https://console.firebase.google.com/)
+2. Enable Authentication and Firestore Database
+3. Copy the Firebase configuration from your project settings
+4. Create a `.env` file in the root directory
+5. Copy the contents from `.env.example` and fill in your Firebase credentials
+
+### 4. Run the application
+```bash
+npm start
+```
+
+The app will open at `http://localhost:3000`
+
+## Environment Variables
+
+All Firebase configuration is handled through environment variables for security. See `.env.example` for required variables.
+
+## Technologies Used
+
+- React 18
+- Firebase (Authentication, Firestore, Analytics)
+- CSS3 for styling
+- Local storage for offline functionality
+
+## Contributing
+
+Feel free to submit issues and enhancement requests!
+
+## License
+
+This project is for personal use. 

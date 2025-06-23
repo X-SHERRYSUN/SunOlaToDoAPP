@@ -12,7 +12,7 @@ import {
   getGMT8Date
 } from '../utils/storage';
 
-const Dashboard = ({ currentUser, userData, onLogout, onUpdateData }) => {
+const Dashboard = ({ currentUser, userData, firebaseUser, onLogout, onUpdateData, onShowCloudAuth }) => {
   const [currentDate, setCurrentDate] = useState(getGMT8Date());
   const [currentStreak, setCurrentStreak] = useState(0);
   const [monthlyStreak, setMonthlyStreak] = useState(0);
@@ -79,9 +79,22 @@ const Dashboard = ({ currentUser, userData, onLogout, onUpdateData }) => {
     return (
       <div className="dashboard">
         <div className="dashboard-header">
-          <button className="logout-btn" onClick={onLogout}>
-            登出
-          </button>
+          <div className="header-left">
+            <button className="logout-btn" onClick={onLogout}>
+              登出
+            </button>
+            {!firebaseUser && (
+              <button className="cloud-sync-btn" onClick={onShowCloudAuth}>
+                ☁️ 啟用雲端同步
+              </button>
+            )}
+            {firebaseUser && (
+              <div className="cloud-status online">
+                <div className="cloud-indicator"></div>
+                {firebaseUser.email || '訪客模式'}
+              </div>
+            )}
+          </div>
           <div className="view-nav">
             <button 
               className={`view-btn ${currentView === 'personal' ? 'active' : ''}`}
@@ -112,9 +125,22 @@ const Dashboard = ({ currentUser, userData, onLogout, onUpdateData }) => {
     return (
       <div className="dashboard">
         <div className="dashboard-header">
-          <button className="logout-btn" onClick={onLogout}>
-            登出
-          </button>
+          <div className="header-left">
+            <button className="logout-btn" onClick={onLogout}>
+              登出
+            </button>
+            {!firebaseUser && (
+              <button className="cloud-sync-btn" onClick={onShowCloudAuth}>
+                ☁️ 啟用雲端同步
+              </button>
+            )}
+            {firebaseUser && (
+              <div className="cloud-status online">
+                <div className="cloud-indicator"></div>
+                {firebaseUser.email || '訪客模式'}
+              </div>
+            )}
+          </div>
           <div className="view-nav">
             <button 
               className={`view-btn ${currentView === 'personal' ? 'active' : ''}`}
@@ -144,9 +170,22 @@ const Dashboard = ({ currentUser, userData, onLogout, onUpdateData }) => {
   return (
     <div className="dashboard">
       <div className="dashboard-header">
-        <button className="logout-btn" onClick={onLogout}>
-          登出
-        </button>
+        <div className="header-left">
+          <button className="logout-btn" onClick={onLogout}>
+            登出
+          </button>
+          {!firebaseUser && (
+            <button className="cloud-sync-btn" onClick={onShowCloudAuth}>
+              ☁️ 啟用雲端同步
+            </button>
+          )}
+          {firebaseUser && (
+            <div className="cloud-status online">
+              <div className="cloud-indicator"></div>
+              {firebaseUser.email || '訪客模式'}
+            </div>
+          )}
+        </div>
         <div className="view-nav">
           <button 
             className={`view-btn ${currentView === 'personal' ? 'active' : ''}`}
