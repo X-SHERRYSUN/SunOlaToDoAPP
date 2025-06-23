@@ -109,9 +109,20 @@ function App() {
     }
   };
 
-  const updateUserData = async (newData) => {
-    // Optimistically update local state for better UX
-    setUserData(newData);
+  const updateUserData = async (newDataOrUpdater) => {
+    let newData;
+    
+    if (typeof newDataOrUpdater === 'function') {
+      // Handle functional update
+      setUserData(prevData => {
+        newData = newDataOrUpdater(prevData);
+        return newData;
+      });
+    } else {
+      // Handle direct data update
+      newData = newDataOrUpdater;
+      setUserData(newData);
+    }
     
     // Save to cloud/local storage
     await saveUserData(newData);

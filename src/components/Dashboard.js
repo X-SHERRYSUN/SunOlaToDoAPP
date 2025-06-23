@@ -56,17 +56,19 @@ const Dashboard = ({ currentUser, userData, firebaseUser, onLogout, onUpdateData
   const isFuture = currentDate > getGMT8Date();
 
   const updateTodos = (dateStr, todos) => {
-    const newUserData = {
-      ...userData,
-      [currentUser]: {
-        ...userData[currentUser],
-        todos: {
-          ...userData[currentUser].todos,
-          [dateStr]: todos
+    onUpdateData(prevUserData => {
+      const newUserData = {
+        ...prevUserData,
+        [currentUser]: {
+          ...prevUserData[currentUser],
+          todos: {
+            ...prevUserData[currentUser].todos,
+            [dateStr]: todos
+          }
         }
-      }
-    };
-    onUpdateData(newUserData);
+      };
+      return newUserData;
+    });
   };
 
   const currentDateStr = formatDate(currentDate);
