@@ -16,16 +16,7 @@ const Overview = ({ userData, currentUser }) => {
   const currentDateStr = formatDate(currentDate);
   const users = ['sun', 'ola'];
 
-  // Debug logging
-  console.log('Overview - userData:', userData);
-  console.log('Overview - currentUser:', currentUser);
-  console.log('Overview - currentDateStr:', currentDateStr);
-
   const getUserData = (user) => {
-    console.log(`Getting data for user: ${user}`);
-    console.log(`User data exists:`, !!userData?.[user]);
-    console.log(`User todos for ${currentDateStr}:`, userData?.[user]?.todos?.[currentDateStr]);
-    
     const currentStreak = calculateStreak(userData, user);
     const monthlyStreak = calculateCurrentMonthStreak(userData, user);
     const userRewards = calculateRewardChances(currentStreak);
@@ -34,7 +25,7 @@ const Overview = ({ userData, currentUser }) => {
     const todos = userData?.[user]?.todos?.[currentDateStr] || [];
     const completionRate = calculateCompletionRate(todos);
 
-    const result = {
+    return {
       currentStreak: currentStreak,
       monthlyStreak: monthlyStreak,
       rewards: userRewards,
@@ -43,9 +34,6 @@ const Overview = ({ userData, currentUser }) => {
       todos: todos,
       completionRate: completionRate
     };
-
-    console.log(`Calculated data for ${user}:`, result);
-    return result;
   };
 
   return (
