@@ -10,7 +10,7 @@ import { auth } from './config';
 
 // Simple password authentication for Sun/Ola users
 export const signInWithUserPassword = async (username, password) => {
-  const CORRECT_PASSWORD = '20241227';
+  const CORRECT_PASSWORD = process.env.REACT_APP_AUTH_PASSWORD || '20241227';
   const VALID_USERS = ['sun', 'ola'];
 
   try {
