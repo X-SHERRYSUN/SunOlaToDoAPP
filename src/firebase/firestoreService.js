@@ -10,10 +10,14 @@ import {
 import { db } from './config';
 import { getCurrentUser } from './authService';
 
+// Use a shared document ID for both users
+const SHARED_DOC_ID = 'shared-reward-streaks';
+
 // Get user data from Firestore
 export const getUserData = async (userId) => {
   try {
-    const userDocRef = doc(db, 'users', userId);
+    // Use the shared document instead of user-specific document
+    const userDocRef = doc(db, 'shared-data', SHARED_DOC_ID);
     const userDoc = await getDoc(userDocRef);
     
     if (userDoc.exists()) {
@@ -32,7 +36,8 @@ export const getUserData = async (userId) => {
 // Save user data to Firestore
 export const saveUserData = async (userId, userData) => {
   try {
-    const userDocRef = doc(db, 'users', userId);
+    // Use the shared document instead of user-specific document
+    const userDocRef = doc(db, 'shared-data', SHARED_DOC_ID);
     await setDoc(userDocRef, {
       ...userData,
       lastUpdated: serverTimestamp()
@@ -48,7 +53,8 @@ export const saveUserData = async (userId, userData) => {
 // Update specific user data fields
 export const updateUserData = async (userId, updates) => {
   try {
-    const userDocRef = doc(db, 'users', userId);
+    // Use the shared document instead of user-specific document
+    const userDocRef = doc(db, 'shared-data', SHARED_DOC_ID);
     await updateDoc(userDocRef, {
       ...updates,
       lastUpdated: serverTimestamp()
@@ -63,7 +69,8 @@ export const updateUserData = async (userId, updates) => {
 
 // Listen to real-time updates
 export const listenToUserData = (userId, callback) => {
-  const userDocRef = doc(db, 'users', userId);
+  // Use the shared document instead of user-specific document
+  const userDocRef = doc(db, 'shared-data', SHARED_DOC_ID);
   
   return onSnapshot(userDocRef, (doc) => {
     if (doc.exists()) {
@@ -85,7 +92,7 @@ export const migrateLocalDataToCloud = async (localData) => {
   }
 
   try {
-    // Check if cloud data already exists
+    // Check if cloud data already exists in the shared document
     const { data: cloudData, error } = await getUserData(user.uid);
     
     if (error) {

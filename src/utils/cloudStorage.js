@@ -26,6 +26,8 @@ import {
   getDetailedDate,
   getDisplayDate
 } from './storage';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase/config';
 
 // Check if user is authenticated and online
 export const isCloudEnabled = () => {
@@ -151,6 +153,94 @@ export const migrateToCloud = async () => {
   }
 };
 
+// New function to migrate existing user-specific documents to shared document
+export const migrateFromOldStructure = async () => {
+  const user = getCurrentUser();
+  if (!user || !navigator.onLine) {
+    console.log('Migration skipped: user not authenticated or offline');
+    return { error: 'User not authenticated or offline' };
+  }
+  
+  try {
+    console.log('Checking for old user-specific data to migrate...');
+    
+    // Try to get data from the old user-specific document structure
+    const oldUserDocRef = doc(db, 'users', user.uid);
+    const oldUserDoc = await getDoc(oldUserDocRef);
+    
+    if (oldUserDoc.exists()) {
+      console.log('Found old user-specific data, migrating to shared document...');
+      const oldData = oldUserDoc.data();
+      
+      // Get current shared data
+      const { data: sharedData } = await getFirestoreData(user.uid);
+      
+      // Merge old data with shared data
+      const mergedData = mergeUserData(sharedData || getDefaultCloudData(), oldData);
+      
+      // Save to shared document
+      await saveFirestoreData(user.uid, mergedData);
+      
+      console.log('Migration completed successfully');
+      return { data: mergedData, error: null };
+    } else {
+      console.log('No old user-specific data found');
+      return { error: null };
+    }
+  } catch (error) {
+    console.error('Migration from old structure failed:', error);
+    return { error: error.message };
+  }
+};
+
+// Default cloud data structure helper (moving it here since it's used in migration)
+const getDefaultCloudData = () => ({
+  sun: {
+    streak: 0,
+    rewardChances: 0,
+    monthlyRewards: 0,
+    todos: {},
+    monthlyStreaks: {}
+  },
+  ola: {
+    streak: 0,
+    rewardChances: 0,
+    monthlyRewards: 0,
+    todos: {},
+    monthlyStreaks: {}
+  },
+  createdAt: new Date().toISOString(),
+  lastUpdated: new Date().toISOString()
+});
+
+// Helper function to merge user data without overwriting other users
+const mergeUserData = (cloudData, localData) => {
+  const merged = { ...cloudData };
+  
+  // Merge each user's data separately to avoid conflicts
+  for (const user of ['sun', 'ola']) {
+    if (localData[user]) {
+      merged[user] = {
+        ...merged[user],
+        ...localData[user],
+        // Merge todos carefully - preserve all dates
+        todos: {
+          ...(merged[user]?.todos || {}),
+          ...(localData[user]?.todos || {})
+        },
+        // Merge monthly streaks carefully
+        monthlyStreaks: {
+          ...(merged[user]?.monthlyStreaks || {}),
+          ...(localData[user]?.monthlyStreaks || {})
+        }
+      };
+    }
+  }
+  
+  merged.lastUpdated = new Date().toISOString();
+  return merged;
+};
+
 // Enhanced sync data between local and cloud
 export const syncData = async () => {
   const user = getCurrentUser();
@@ -181,9 +271,11 @@ export const syncData = async () => {
     const cloudTimestamp = new Date(cloudData.lastUpdated || 0).getTime();
     
     if (localTimestamp > cloudTimestamp) {
-      // Local data is newer, upload to cloud
-      console.log('Local data is newer, uploading to cloud');
-      await saveFirestoreData(user.uid, localData);
+      // Local data is newer, but we need to merge carefully to avoid overwriting other user's data
+      console.log('Local data is newer, merging with cloud data');
+      const mergedData = mergeUserData(cloudData, localData);
+      await saveFirestoreData(user.uid, mergedData);
+      saveLocalData(mergedData);
     } else if (cloudTimestamp > localTimestamp) {
       // Cloud data is newer, download to local
       console.log('Cloud data is newer, downloading to local');

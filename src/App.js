@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import AuthModal from './components/AuthModal';
-import { loadUserData, saveUserData, syncData, setupRealtimeListener, isCloudEnabled } from './utils/cloudStorage';
+import { loadUserData, saveUserData, syncData, setupRealtimeListener, isCloudEnabled, migrateFromOldStructure } from './utils/cloudStorage';
 import { onAuthChange, logOut } from './firebase/authService';
 
 function App() {
@@ -22,6 +22,9 @@ function App() {
       if (user) {
         // User is signed in to Firebase
         console.log('Firebase user signed in:', user.email || 'Anonymous');
+        
+        // First, try to migrate any old user-specific data
+        await migrateFromOldStructure();
         
         // Set up real-time listener for this user's data
         const realtimeUnsub = await setupRealtimeListener(user.uid, (data) => {
@@ -116,6 +119,9 @@ function App() {
   const handleCloudAuthSuccess = async (user) => {
     setFirebaseUser(user);
     setShowCloudAuth(false);
+    
+    // First, try to migrate any old user-specific data
+    await migrateFromOldStructure();
     
     // Set up real-time listener for the newly authenticated user
     const realtimeUnsub = await setupRealtimeListener(user.uid, (data) => {
