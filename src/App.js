@@ -29,6 +29,10 @@ function App() {
         // Set up real-time listener for this user's data
         const realtimeUnsub = await setupRealtimeListener(user.uid, (data) => {
           console.log('Real-time data update received:', data);
+          console.log('Real-time - Data has sun:', !!data?.sun);
+          console.log('Real-time - Data has ola:', !!data?.ola);
+          console.log('Real-time - Sun todos:', Object.keys(data?.sun?.todos || {}));
+          console.log('Real-time - Ola todos:', Object.keys(data?.ola?.todos || {}));
           setUserData(data);
         });
         
@@ -72,6 +76,11 @@ function App() {
   const loadUserDataAsync = async () => {
     try {
       const data = await loadUserData();
+      console.log('App - Loaded user data:', data);
+      console.log('App - Data has sun:', !!data?.sun);
+      console.log('App - Data has ola:', !!data?.ola);
+      console.log('App - Sun todos:', Object.keys(data?.sun?.todos || {}));
+      console.log('App - Ola todos:', Object.keys(data?.ola?.todos || {}));
       setUserData(data);
     } catch (error) {
       console.error('Failed to load user data:', error);
