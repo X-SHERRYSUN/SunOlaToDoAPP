@@ -113,11 +113,10 @@ function App() {
     let newData;
     
     if (typeof newDataOrUpdater === 'function') {
-      // Handle functional update
-      setUserData(prevData => {
-        newData = newDataOrUpdater(prevData);
-        return newData;
-      });
+      // Handle functional update - we need to get the current state first
+      const currentData = userData;
+      newData = newDataOrUpdater(currentData);
+      setUserData(newData);
     } else {
       // Handle direct data update
       newData = newDataOrUpdater;
