@@ -14,7 +14,13 @@ import {
 const Overview = ({ userData, currentUser }) => {
   const currentDate = getGMT8Date();
   const currentDateStr = formatDate(currentDate);
-  const users = ['sun', 'ola'];
+  
+  // Sort users array to put current user first
+  const allUsers = ['sun', 'ola'];
+  const users = [
+    currentUser, // Current user first
+    ...allUsers.filter(user => user !== currentUser) // Other users after
+  ];
 
   const getUserData = (user) => {
     const currentStreak = calculateStreak(userData, user);
