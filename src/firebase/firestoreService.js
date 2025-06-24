@@ -21,19 +21,7 @@ export const getUserData = async (userId, username = null) => {
     
     if (userDoc.exists()) {
       const data = userDoc.data();
-      const currentUsername = username || getCurrentUsername();
-      
-      if (currentUsername && data[currentUsername]) {
-        // Return data for specific user
-        return { 
-          data: {
-            [currentUsername]: data[currentUsername],
-            lastUpdated: data.lastUpdated,
-            createdAt: data.createdAt
-          }, 
-          error: null 
-        };
-      }
+      // Always return the complete data structure so Overview can show both users
       return { data, error: null };
     } else {
       // Return default data if document doesn't exist
@@ -113,21 +101,8 @@ export const listenToUserData = (userId, callback, username = null) => {
   return onSnapshot(userDocRef, (doc) => {
     if (doc.exists()) {
       const data = doc.data();
-      const currentUsername = username || getCurrentUsername();
-      
-      if (currentUsername && data[currentUsername]) {
-        // Return data for specific user
-        callback({ 
-          data: {
-            [currentUsername]: data[currentUsername],
-            lastUpdated: data.lastUpdated,
-            createdAt: data.createdAt
-          }, 
-          error: null 
-        });
-      } else {
-        callback({ data, error: null });
-      }
+      // Always return the complete data structure so Overview can show both users
+      callback({ data, error: null });
     } else {
       callback({ data: getDefaultCloudData(), error: null });
     }

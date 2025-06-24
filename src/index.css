@@ -143,6 +143,10 @@ body {
   color: white;
   padding: 20px;
   text-align: center;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
 }
 
 .dashboard-header h1 {
@@ -191,9 +195,6 @@ body {
 }
 
 .logout-btn {
-  position: absolute;
-  top: 20px;
-  right: 20px;
   background: rgba(255, 255, 255, 0.2);
   border: none;
   color: white;
@@ -201,6 +202,11 @@ body {
   border-radius: 8px;
   cursor: pointer;
   font-size: 12px;
+  transition: background-color 0.3s;
+}
+
+.logout-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 /* Date Navigation */
@@ -1379,8 +1385,8 @@ body {
 .header-left {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 10px;
+  justify-content: flex-start;
 }
 
 .cloud-sync-btn {
@@ -1401,4 +1407,9 @@ body {
 .cloud-sync-btn:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.cloud-status-container {
+  display: flex;
+  align-items: center;
 } 
