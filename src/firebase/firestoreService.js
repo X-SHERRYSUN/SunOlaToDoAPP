@@ -46,23 +46,15 @@ export const saveUserData = async (userId, userData, username = null) => {
     console.log('Saving data for username:', currentUsername);
     console.log('Data to save:', userData);
     
-    if (currentUsername && userData[currentUsername]) {
-      // Update only the specific user's data
-      const updateData = {
-        [`${currentUsername}`]: userData[currentUsername],
-        lastUpdated: serverTimestamp()
-      };
-      
-      console.log('Updating specific user data:', updateData);
-      await setDoc(sharedDocRef, updateData, { merge: true });
-    } else {
-      // Update full data structure
-      console.log('Updating full data structure');
-      await setDoc(sharedDocRef, {
-        ...userData,
-        lastUpdated: serverTimestamp()
-      }, { merge: true });
-    }
+    // Always save the complete data structure, not just the current user's data
+    // This prevents partial updates from overwriting other users' data
+    const dataToSave = {
+      ...userData,
+      lastUpdated: serverTimestamp()
+    };
+    
+    console.log('Saving complete data structure:', dataToSave);
+    await setDoc(sharedDocRef, dataToSave, { merge: true });
     
     console.log('Data saved successfully');
     return { error: null };

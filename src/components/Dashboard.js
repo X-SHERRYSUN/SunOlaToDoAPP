@@ -56,7 +56,36 @@ const Dashboard = ({ currentUser, userData, firebaseUser, onLogout, onUpdateData
   const isFuture = currentDate > getGMT8Date();
 
   const updateTodos = (dateStr, todos) => {
+    console.log('Dashboard updateTodos called:');
+    console.log('- currentUser:', currentUser);
+    console.log('- dateStr:', dateStr);
+    console.log('- todos to save:', todos);
+    console.log('- current userData:', userData);
+    
     onUpdateData(prevUserData => {
+      console.log('updateTodos prevUserData:', prevUserData);
+      
+      // Ensure the user data structure exists
+      if (!prevUserData) {
+        console.warn('prevUserData is null, initializing...');
+        prevUserData = {
+          sun: { streak: 0, rewardChances: 0, monthlyRewards: 0, todos: {}, monthlyStreaks: {} },
+          ola: { streak: 0, rewardChances: 0, monthlyRewards: 0, todos: {}, monthlyStreaks: {} }
+        };
+      }
+      
+      // Ensure the current user's data exists
+      if (!prevUserData[currentUser]) {
+        console.warn(`User data for ${currentUser} doesn't exist, initializing...`);
+        prevUserData[currentUser] = {
+          streak: 0,
+          rewardChances: 0,
+          monthlyRewards: 0,
+          todos: {},
+          monthlyStreaks: {}
+        };
+      }
+      
       const newUserData = {
         ...prevUserData,
         [currentUser]: {
@@ -67,6 +96,8 @@ const Dashboard = ({ currentUser, userData, firebaseUser, onLogout, onUpdateData
           }
         }
       };
+      
+      console.log('updateTodos newUserData:', newUserData);
       return newUserData;
     });
   };

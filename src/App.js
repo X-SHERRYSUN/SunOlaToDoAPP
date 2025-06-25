@@ -26,7 +26,10 @@ function App() {
         
         // Set up real-time listener for shared data
         const realtimeUnsub = await setupRealtimeListener('shared', (data) => {
-          console.log('Real-time shared data update received:', data);
+          console.log('Real-time shared data update received:');
+          console.log('- incoming data:', data);
+          console.log('- current userData state:', userData);
+          console.log('- currentUser:', currentUser);
           setUserData(data);
         }, user.customUsername);
         
@@ -135,21 +138,30 @@ function App() {
   };
 
   const updateUserData = async (newDataOrUpdater) => {
+    console.log('App updateUserData called:');
+    console.log('- currentUser:', currentUser);
+    console.log('- input type:', typeof newDataOrUpdater);
+    
     let newData;
     
     if (typeof newDataOrUpdater === 'function') {
       // Handle functional update - we need to get the current state first
       const currentData = userData;
+      console.log('- currentData before update:', currentData);
       newData = newDataOrUpdater(currentData);
+      console.log('- newData after functional update:', newData);
       setUserData(newData);
     } else {
       // Handle direct data update
       newData = newDataOrUpdater;
+      console.log('- newData direct update:', newData);
       setUserData(newData);
     }
     
     // Save to cloud/local storage
+    console.log('- saving data to cloud/local storage:', newData);
     await saveUserData(newData);
+    console.log('- data saved successfully');
   };
 
   if (isLoading) {

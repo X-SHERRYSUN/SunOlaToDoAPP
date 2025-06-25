@@ -97,15 +97,43 @@ export const saveUserData = async (data) => {
   const user = getCurrentUser();
   const username = getCurrentUsername();
   
+  console.log('cloudStorage saveUserData called:');
+  console.log('- username:', username);
+  console.log('- data:', data);
+  
+  // Ensure data has the complete structure for both users
+  const completeData = {
+    sun: {
+      streak: 0,
+      rewardChances: 0,
+      monthlyRewards: 0,
+      todos: {},
+      monthlyStreaks: {},
+      ...(data?.sun || {})
+    },
+    ola: {
+      streak: 0,
+      rewardChances: 0,
+      monthlyRewards: 0,
+      todos: {},
+      monthlyStreaks: {},
+      ...(data?.ola || {})
+    },
+    createdAt: data?.createdAt || new Date().toISOString(),
+    lastUpdated: new Date().toISOString()
+  };
+  
+  console.log('Complete data structure to save:', completeData);
+  
   // Always save to localStorage first (for offline support)
-  saveLocalData(data);
+  saveLocalData(completeData);
   
   // Save to cloud if authenticated and online
   if (user && navigator.onLine) {
     try {
       console.log('Saving shared data to cloud, username:', username);
       // Always use 'shared' as userId to access the shared document
-      const { error } = await saveFirestoreData('shared', data, username);
+      const { error } = await saveFirestoreData('shared', completeData, username);
       if (error) {
         console.warn('Failed to save to cloud:', error);
       } else {
@@ -118,7 +146,7 @@ export const saveUserData = async (data) => {
     console.log('Data saved to localStorage only (user not authenticated or offline)');
   }
   
-  return data;
+  return completeData;
 };
 
 // Update specific user data
