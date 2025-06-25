@@ -24,9 +24,9 @@ function App() {
         // First, try to migrate any old user-specific data
         await migrateFromOldStructure();
         
-        // Set up real-time listener for this user's data
-        const realtimeUnsub = await setupRealtimeListener(user.uid, (data) => {
-          console.log('Real-time data update received:', data);
+        // Set up real-time listener for shared data
+        const realtimeUnsub = await setupRealtimeListener('shared', (data) => {
+          console.log('Real-time shared data update received:', data);
           setUserData(data);
         }, user.customUsername);
         
@@ -36,7 +36,7 @@ function App() {
         }
         setRealtimeUnsubscribe(() => realtimeUnsub);
         
-        // Load initial data
+        // Load initial shared data
         await loadUserDataAsync();
       } else {
         // User signed out, clean up real-time listener

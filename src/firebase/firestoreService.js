@@ -8,30 +8,26 @@ import {
   serverTimestamp 
 } from 'firebase/firestore';
 import { db } from './config';
-import { getCurrentUser, getCurrentUsername, getCurrentUserId } from './authService';
+import { getCurrentUser, getCurrentUsername } from './authService';
 
-// Get user data from Firestore for specific user (each user has their own document)
+// Use a consistent shared document ID that doesn't depend on user authentication
+const SHARED_DOC_ID = 'sun-ola-shared-data';
+
+// Get user data from Firestore for all users (always returns shared data)
 export const getUserData = async (userId, username = null) => {
   try {
-    const currentUsername = username || getCurrentUsername();
-    const consistentUserId = getCurrentUserId();
+    console.log('Getting shared data from document:', SHARED_DOC_ID);
+    const sharedDocRef = doc(db, 'shared-data', SHARED_DOC_ID);
+    const sharedDoc = await getDoc(sharedDocRef);
     
-    // Use the consistent user ID instead of Firebase UID for document reference
-    const documentId = consistentUserId || userId;
-    
-    console.log('Getting user data for:', currentUsername, 'with document ID:', documentId);
-    
-    const userDocRef = doc(db, 'users', documentId);
-    const userDoc = await getDoc(userDocRef);
-    
-    if (userDoc.exists()) {
-      const data = userDoc.data();
-      console.log('User data loaded from Firestore:', data);
+    if (sharedDoc.exists()) {
+      const data = sharedDoc.data();
+      console.log('Retrieved shared data:', data);
       return { data, error: null };
     } else {
+      console.log('No shared data found, returning default data');
       // Return default data if document doesn't exist
-      const defaultData = getDefaultUserData(currentUsername);
-      console.log('No existing data found, returning default data for:', currentUsername);
+      const defaultData = getDefaultCloudData();
       return { data: defaultData, error: null };
     }
   } catch (error) {
@@ -40,34 +36,35 @@ export const getUserData = async (userId, username = null) => {
   }
 };
 
-// Save user data to Firestore for specific user (each user has their own document)
+// Save user data to Firestore (always save to shared document)
 export const saveUserData = async (userId, userData, username = null) => {
   try {
+    console.log('Saving data to shared document:', SHARED_DOC_ID);
+    const sharedDocRef = doc(db, 'shared-data', SHARED_DOC_ID);
     const currentUsername = username || getCurrentUsername();
-    const consistentUserId = getCurrentUserId();
     
-    // Use the consistent user ID instead of Firebase UID for document reference
-    const documentId = consistentUserId || userId;
+    console.log('Saving data for username:', currentUsername);
+    console.log('Data to save:', userData);
     
-    console.log('Saving user data for:', currentUsername, 'to document ID:', documentId);
+    if (currentUsername && userData[currentUsername]) {
+      // Update only the specific user's data
+      const updateData = {
+        [`${currentUsername}`]: userData[currentUsername],
+        lastUpdated: serverTimestamp()
+      };
+      
+      console.log('Updating specific user data:', updateData);
+      await setDoc(sharedDocRef, updateData, { merge: true });
+    } else {
+      // Update full data structure
+      console.log('Updating full data structure');
+      await setDoc(sharedDocRef, {
+        ...userData,
+        lastUpdated: serverTimestamp()
+      }, { merge: true });
+    }
     
-    const userDocRef = doc(db, 'users', documentId);
-    
-    // Each user only saves their own data structure
-    const userSpecificData = {
-      username: currentUsername,
-      streak: userData.streak || 0,
-      rewardChances: userData.rewardChances || 0,
-      monthlyRewards: userData.monthlyRewards || 0,
-      todos: userData.todos || {},
-      monthlyStreaks: userData.monthlyStreaks || {},
-      lastUpdated: serverTimestamp(),
-      updatedBy: currentUsername
-    };
-    
-    await setDoc(userDocRef, userSpecificData, { merge: true });
-    console.log('User data saved successfully for:', currentUsername);
-    
+    console.log('Data saved successfully');
     return { error: null };
   } catch (error) {
     console.error('Error saving user data:', error);
@@ -78,25 +75,33 @@ export const saveUserData = async (userId, userData, username = null) => {
 // Update specific user data fields
 export const updateUserData = async (userId, updates, username = null) => {
   try {
+    console.log('Updating user data in shared document:', SHARED_DOC_ID);
+    const sharedDocRef = doc(db, 'shared-data', SHARED_DOC_ID);
     const currentUsername = username || getCurrentUsername();
-    const consistentUserId = getCurrentUserId();
     
-    // Use the consistent user ID instead of Firebase UID for document reference
-    const documentId = consistentUserId || userId;
+    console.log('Updating data for username:', currentUsername);
+    console.log('Updates:', updates);
     
-    console.log('Updating user data for:', currentUsername, 'document ID:', documentId);
+    if (currentUsername) {
+      // Create nested update object for specific user
+      const nestedUpdates = {};
+      Object.keys(updates).forEach(key => {
+        if (key !== 'lastUpdated') {
+          nestedUpdates[`${currentUsername}.${key}`] = updates[key];
+        }
+      });
+      nestedUpdates.lastUpdated = serverTimestamp();
+      
+      console.log('Applying nested updates:', nestedUpdates);
+      await updateDoc(sharedDocRef, nestedUpdates);
+    } else {
+      await updateDoc(sharedDocRef, {
+        ...updates,
+        lastUpdated: serverTimestamp()
+      });
+    }
     
-    const userDocRef = doc(db, 'users', documentId);
-    
-    const updateData = {
-      ...updates,
-      lastUpdated: serverTimestamp(),
-      updatedBy: currentUsername
-    };
-    
-    await updateDoc(userDocRef, updateData);
-    console.log('User data updated successfully for:', currentUsername);
-    
+    console.log('User data updated successfully');
     return { error: null };
   } catch (error) {
     console.error('Error updating user data:', error);
@@ -104,27 +109,19 @@ export const updateUserData = async (userId, updates, username = null) => {
   }
 };
 
-// Listen to real-time updates for specific user
+// Listen to real-time updates for shared data
 export const listenToUserData = (userId, callback, username = null) => {
-  const currentUsername = username || getCurrentUsername();
-  const consistentUserId = getCurrentUserId();
+  console.log('Setting up listener for shared document:', SHARED_DOC_ID);
+  const sharedDocRef = doc(db, 'shared-data', SHARED_DOC_ID);
   
-  // Use the consistent user ID instead of Firebase UID for document reference
-  const documentId = consistentUserId || userId;
-  
-  console.log('Setting up real-time listener for:', currentUsername, 'document ID:', documentId);
-  
-  const userDocRef = doc(db, 'users', documentId);
-  
-  return onSnapshot(userDocRef, (doc) => {
+  return onSnapshot(sharedDocRef, (doc) => {
     if (doc.exists()) {
       const data = doc.data();
-      console.log('Real-time update received for:', currentUsername, data);
+      console.log('Real-time update received:', data);
       callback({ data, error: null });
     } else {
-      const defaultData = getDefaultUserData(currentUsername);
-      console.log('No document found, providing default data for:', currentUsername);
-      callback({ data: defaultData, error: null });
+      console.log('No shared document found, using default data');
+      callback({ data: getDefaultCloudData(), error: null });
     }
   }, (error) => {
     console.error('Error listening to user data:', error);
@@ -132,69 +129,35 @@ export const listenToUserData = (userId, callback, username = null) => {
   });
 };
 
-// Function to get data for both users (for Overview page)
-export const getBothUsersData = async () => {
-  try {
-    console.log('Getting data for both users for Overview page');
-    
-    // Get data for both Sun and Ola
-    const sunDocRef = doc(db, 'users', 'user-streak-app-sun');
-    const olaDocRef = doc(db, 'users', 'user-streak-app-ola');
-    
-    const [sunDoc, olaDoc] = await Promise.all([
-      getDoc(sunDocRef),
-      getDoc(olaDocRef)
-    ]);
-    
-    const sunData = sunDoc.exists() ? sunDoc.data() : getDefaultUserData('sun');
-    const olaData = olaDoc.exists() ? olaDoc.data() : getDefaultUserData('ola');
-    
-    // Return in the format expected by Overview component
-    const combinedData = {
-      sun: sunData,
-      ola: olaData
-    };
-    
-    console.log('Combined data for overview:', combinedData);
-    return { data: combinedData, error: null };
-  } catch (error) {
-    console.error('Error getting both users data:', error);
-    return { data: null, error: error.message };
-  }
-};
-
 // Migrate localStorage data to Firestore
 export const migrateLocalDataToCloud = async (localData) => {
   const user = getCurrentUser();
-  const currentUsername = getCurrentUsername();
-  
-  if (!user || !currentUsername) {
+  if (!user) {
     return { error: 'User not authenticated' };
   }
 
   try {
-    console.log('Migrating local data to cloud for user:', currentUsername);
-    
-    // Check if cloud data already exists
-    const { data: cloudData, error } = await getUserData(user.uid, currentUsername);
+    console.log('Migrating local data to cloud');
+    // Check if cloud data already exists in the shared document
+    const { data: cloudData, error } = await getUserData(user.uid);
     
     if (error) {
       return { error };
     }
 
-    // Extract the current user's data from local data
-    const userLocalData = localData[currentUsername] || localData;
-    
-    // If cloud data is empty or default, migrate user's local data
+    // If cloud data is empty or default, migrate local data
     const isCloudDataEmpty = !cloudData || 
-      (cloudData.streak === 0 && Object.keys(cloudData.todos || {}).length === 0);
+      (cloudData.sun?.streak === 0 && cloudData.ola?.streak === 0 && 
+       Object.keys(cloudData.sun?.todos || {}).length === 0 && 
+       Object.keys(cloudData.ola?.todos || {}).length === 0);
 
-    if (isCloudDataEmpty && userLocalData) {
-      console.log('Migrating user data:', userLocalData);
-      const result = await saveUserData(user.uid, userLocalData, currentUsername);
+    if (isCloudDataEmpty && localData) {
+      console.log('Migrating local data to cloud');
+      const result = await saveUserData(user.uid, localData);
       return result;
     }
 
+    console.log('Cloud data already exists, skipping migration');
     return { error: null };
   } catch (error) {
     console.error('Error migrating local data:', error);
@@ -202,14 +165,22 @@ export const migrateLocalDataToCloud = async (localData) => {
   }
 };
 
-// Default user data structure for a single user
-const getDefaultUserData = (username) => ({
-  username: username,
-  streak: 0,
-  rewardChances: 0,
-  monthlyRewards: 0,
-  todos: {},
-  monthlyStreaks: {},
+// Default cloud data structure
+const getDefaultCloudData = () => ({
+  sun: {
+    streak: 0,
+    rewardChances: 0,
+    monthlyRewards: 0,
+    todos: {},
+    monthlyStreaks: {}
+  },
+  ola: {
+    streak: 0,
+    rewardChances: 0,
+    monthlyRewards: 0,
+    todos: {},
+    monthlyStreaks: {}
+  },
   createdAt: new Date().toISOString(),
   lastUpdated: new Date().toISOString()
 }); 
