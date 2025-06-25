@@ -8,6 +8,13 @@ import {
 } from 'firebase/auth';
 import { auth } from './config';
 
+// Create consistent user IDs for Sun and Ola
+const getUserId = (username) => {
+  // Use a deterministic approach to create consistent user IDs
+  const baseId = process.env.REACT_APP_USER_ID_BASE || 'user-streak-app';
+  return `${baseId}-${username.toLowerCase()}`;
+};
+
 // Simple password authentication for Sun/Ola users
 export const signInWithUserPassword = async (username, password) => {
   const CORRECT_PASSWORD = process.env.REACT_APP_AUTH_PASSWORD || '20241227';
@@ -27,24 +34,40 @@ export const signInWithUserPassword = async (username, password) => {
       return { user: null, error: 'Incorrect password' };
     }
 
-    console.log('Password and username validated, attempting Firebase anonymous auth...');
+    console.log('Password and username validated, clearing previous authentication...');
 
-    // Use anonymous authentication to get a Firebase user
+    // Clear any existing authentication state first
+    localStorage.removeItem('customUsername');
+    
+    // Sign out any existing session
+    if (auth.currentUser) {
+      await signOut(auth);
+    }
+
+    console.log('Creating consistent user session...');
+
+    // Use anonymous authentication to get a Firebase user (but we'll override the ID)
     const userCredential = await signInAnonymously(auth);
     
     console.log('Firebase anonymous authentication successful:', userCredential.user.uid);
     
     // Store username in localStorage for persistence
-    localStorage.setItem('customUsername', username.toLowerCase());
+    const normalizedUsername = username.toLowerCase();
+    localStorage.setItem('customUsername', normalizedUsername);
+    
+    // Create a consistent user ID for this username
+    const consistentUserId = getUserId(normalizedUsername);
     
     // Add custom properties to identify the user
     const customUser = {
       ...userCredential.user,
-      customUsername: username.toLowerCase(),
-      displayName: username.charAt(0).toUpperCase() + username.slice(1)
+      uid: consistentUserId, // Override with consistent ID
+      customUsername: normalizedUsername,
+      displayName: username.charAt(0).toUpperCase() + username.slice(1),
+      isCustomAuth: true
     };
 
-    console.log('Login successful for user:', username);
+    console.log('Login successful for user:', username, 'with consistent ID:', consistentUserId);
     return { user: customUser, error: null };
   } catch (error) {
     console.error('Firebase authentication error:', error);
@@ -65,6 +88,15 @@ export const getCurrentUsername = () => {
   // Fallback to user object (though this won't persist across sessions)
   const user = auth.currentUser;
   return user?.customUsername || null;
+};
+
+// Get consistent user ID for current user
+export const getCurrentUserId = () => {
+  const username = getCurrentUsername();
+  if (username) {
+    return getUserId(username);
+  }
+  return null;
 };
 
 // Sign up with email and password

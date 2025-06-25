@@ -11,6 +11,7 @@ import {
   processMonthlySettlement,
   getGMT8Date
 } from '../utils/storage';
+import { loadOverviewData } from '../utils/cloudStorage';
 
 
 const Dashboard = ({ currentUser, userData, firebaseUser, onLogout, onUpdateData, onShowCloudAuth, isCloudSyncEnabled }) => {
@@ -19,6 +20,7 @@ const Dashboard = ({ currentUser, userData, firebaseUser, onLogout, onUpdateData
   const [monthlyStreak, setMonthlyStreak] = useState(0);
   const [currentView, setCurrentView] = useState('personal'); // 'personal', 'overview', or 'history'
   const [totalRewards, setTotalRewards] = useState(0);
+  const [overviewData, setOverviewData] = useState(null);
 
 
   useEffect(() => {
@@ -32,6 +34,23 @@ const Dashboard = ({ currentUser, userData, firebaseUser, onLogout, onUpdateData
       setTotalRewards(total);
     }
   }, [userData, currentUser]);
+
+  // Load overview data when switching to overview view
+  useEffect(() => {
+    if (currentView === 'overview') {
+      const loadOverview = async () => {
+        try {
+          const data = await loadOverviewData();
+          setOverviewData(data);
+        } catch (error) {
+          console.error('Failed to load overview data:', error);
+          // Fallback to current userData if available
+          setOverviewData(userData);
+        }
+      };
+      loadOverview();
+    }
+  }, [currentView, userData]);
 
   // Check if it's the last day of month and process settlement
   useEffect(() => {
@@ -124,7 +143,7 @@ const Dashboard = ({ currentUser, userData, firebaseUser, onLogout, onUpdateData
             </button>
           </div>
         </div>
-        <Overview userData={userData} currentUser={currentUser} />
+        <Overview userData={overviewData || userData} currentUser={currentUser} />
       </div>
     );
   }

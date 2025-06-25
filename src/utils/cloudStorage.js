@@ -1,10 +1,11 @@
 // Cloud Storage utility functions - combines localStorage with Firebase
-import { getCurrentUser, getCurrentUsername } from '../firebase/authService';
+import { getCurrentUser, getCurrentUsername, getCurrentUserId } from '../firebase/authService';
 import { 
   getUserData as getFirestoreData, 
   saveUserData as saveFirestoreData,
   migrateLocalDataToCloud,
-  listenToUserData
+  listenToUserData,
+  getBothUsersData
 } from '../firebase/firestoreService';
 import { 
   loadUserData as loadLocalData, 
@@ -50,10 +51,12 @@ export const setupRealtimeListener = async (userId, callback, username = null) =
       }
 
       if (data) {
+        // Convert single-user data to the expected format for local storage
+        const formattedData = convertSingleUserToLocalFormat(data, currentUsername);
         // Save to localStorage as backup
-        saveLocalData(data);
-        // Call the callback with the updated data
-        callback(data);
+        saveLocalData(formattedData);
+        // Call the callback with the formatted data
+        callback(formattedData);
       }
     }, currentUsername);
 
@@ -65,21 +68,51 @@ export const setupRealtimeListener = async (userId, callback, username = null) =
   }
 };
 
+// Convert single user data from Firestore to local storage format
+const convertSingleUserToLocalFormat = (userData, username) => {
+  return {
+    [username]: {
+      streak: userData.streak || 0,
+      rewardChances: userData.rewardChances || 0,
+      monthlyRewards: userData.monthlyRewards || 0,
+      todos: userData.todos || {},
+      monthlyStreaks: userData.monthlyStreaks || {}
+    },
+    lastUpdated: userData.lastUpdated || new Date().toISOString()
+  };
+};
+
+// Convert local storage format to single user data for Firestore
+const convertLocalToSingleUserFormat = (localData, username) => {
+  if (localData[username]) {
+    return localData[username];
+  }
+  // If local data doesn't have the username structure, assume it's old format
+  return {
+    streak: localData.streak || 0,
+    rewardChances: localData.rewardChances || 0,
+    monthlyRewards: localData.monthlyRewards || 0,
+    todos: localData.todos || {},
+    monthlyStreaks: localData.monthlyStreaks || {}
+  };
+};
+
 // Load user data (cloud first, fallback to local)
 export const loadUserData = async () => {
   const user = getCurrentUser();
   const username = getCurrentUsername();
   
-  if (user && navigator.onLine) {
+  if (user && navigator.onLine && username) {
     try {
       console.log('Loading data from cloud for user:', user.uid, 'username:', username);
       const { data: cloudData, error } = await getFirestoreData(user.uid, username);
       
       if (!error && cloudData) {
         console.log('Cloud data loaded successfully');
-        // Also save to localStorage as backup
-        saveLocalData(cloudData);
-        return cloudData;
+        // Convert to local format and save as backup
+        const formattedData = convertSingleUserToLocalFormat(cloudData, username);
+        saveLocalData(formattedData);
+        return formattedData;
       } else if (error) {
         console.warn('Error loading cloud data:', error);
       }
@@ -90,6 +123,48 @@ export const loadUserData = async () => {
   
   // Fallback to localStorage
   console.log('Loading data from localStorage');
+  const localData = loadLocalData();
+  
+  // Ensure the local data has the correct structure for the current user
+  if (username && !localData[username]) {
+    // Migrate old format to new format
+    const defaultUserData = {
+      [username]: {
+        streak: localData.streak || 0,
+        rewardChances: localData.rewardChances || 0,
+        monthlyRewards: localData.monthlyRewards || 0,
+        todos: localData.todos || {},
+        monthlyStreaks: localData.monthlyStreaks || {}
+      },
+      lastUpdated: localData.lastUpdated || new Date().toISOString()
+    };
+    saveLocalData(defaultUserData);
+    return defaultUserData;
+  }
+  
+  return localData;
+};
+
+// Load data for Overview page (both users)
+export const loadOverviewData = async () => {
+  if (navigator.onLine) {
+    try {
+      console.log('Loading overview data from cloud');
+      const { data: cloudData, error } = await getBothUsersData();
+      
+      if (!error && cloudData) {
+        console.log('Overview cloud data loaded successfully');
+        return cloudData;
+      } else if (error) {
+        console.warn('Error loading overview cloud data:', error);
+      }
+    } catch (error) {
+      console.warn('Failed to load overview cloud data:', error);
+    }
+  }
+  
+  // Fallback to localStorage
+  console.log('Loading overview data from localStorage');
   return loadLocalData();
 };
 
@@ -102,10 +177,14 @@ export const saveUserData = async (data) => {
   saveLocalData(data);
   
   // Save to cloud if authenticated and online
-  if (user && navigator.onLine) {
+  if (user && navigator.onLine && username) {
     try {
       console.log('Saving data to cloud for user:', user.uid, 'username:', username);
-      const { error } = await saveFirestoreData(user.uid, data, username);
+      
+      // Convert to single user format for Firestore
+      const singleUserData = convertLocalToSingleUserFormat(data, username);
+      
+      const { error } = await saveFirestoreData(user.uid, singleUserData, username);
       if (error) {
         console.warn('Failed to save to cloud:', error);
       } else {
@@ -131,19 +210,26 @@ export const updateUserData = async (updates) => {
 // Migrate localStorage data to cloud when user signs in
 export const migrateToCloud = async () => {
   const user = getCurrentUser();
-  if (!user) return { error: 'User not authenticated' };
+  const username = getCurrentUsername();
+  
+  if (!user || !username) return { error: 'User not authenticated' };
   
   try {
-    console.log('Migrating local data to cloud for user:', user.uid);
+    console.log('Migrating local data to cloud for user:', user.uid, 'username:', username);
     const localData = loadLocalData();
-    const result = await migrateLocalDataToCloud(localData);
+    
+    // Convert to single user format for migration
+    const singleUserData = convertLocalToSingleUserFormat(localData, username);
+    
+    const result = await migrateLocalDataToCloud(singleUserData);
     
     if (!result.error) {
       console.log('Migration successful');
       // After successful migration, load fresh cloud data
-      const { data: cloudData } = await getFirestoreData(user.uid, getCurrentUsername());
+      const { data: cloudData } = await getFirestoreData(user.uid, username);
       if (cloudData) {
-        saveLocalData(cloudData);
+        const formattedData = convertSingleUserToLocalFormat(cloudData, username);
+        saveLocalData(formattedData);
       }
     } else {
       console.warn('Migration failed:', result.error);

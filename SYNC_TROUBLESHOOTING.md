@@ -136,4 +136,144 @@ If you're still experiencing issues:
 4. Check your network connectivity
 5. Review the Firestore security rules
 
-The app now provides much better logging and error messages to help diagnose sync issues. 
+The app now provides much better logging and error messages to help diagnose sync issues.
+
+## ⚠️ CRITICAL FIX: User Data Separation Issue (2024-12-27)
+
+### Problem Discovered
+A serious issue was found where user data was not properly separated between Sun and Ola accounts:
+
+1. **Data Leakage**: When switching between user accounts on the same device, users could see each other's tasks
+2. **Inconsistent Authentication**: Each login created a new random Firebase anonymous user ID, making data association unreliable
+3. **Shared Document Storage**: All data was stored in a single shared Firestore document, causing privacy violations
+
+### Root Cause
+- The authentication system used `signInAnonymously()` which creates a new random user ID each time
+- User identity was only stored in localStorage, not tied to consistent Firebase authentication
+- Firestore used a shared document ID (`shared-reward-streaks`) for both users
+
+### Fixes Implemented
+
+#### 1. Consistent User Authentication
+- **Before**: Random anonymous Firebase user IDs
+- **After**: Deterministic user IDs based on username (`user-streak-app-sun`, `user-streak-app-ola`)
+- **Code**: Updated `src/firebase/authService.js` with `getUserId()` function
+
+#### 2. Separated Data Storage  
+- **Before**: Single shared Firestore document
+- **After**: Separate documents for each user in `users` collection
+- **Code**: Completely rewrote `src/firebase/firestoreService.js`
+
+#### 3. Data Format Conversion
+- **Before**: Shared data structure with both users in one object
+- **After**: Individual user data structures with conversion utilities
+- **Code**: Added conversion functions in `src/utils/cloudStorage.js`
+
+#### 4. Overview Page Fix
+- **Before**: Used potentially contaminated local data  
+- **After**: Explicitly loads both users' data from separate sources
+- **Code**: Added `loadOverviewData()` and `getBothUsersData()` functions
+
+### Security Improvements
+- Each user now has their own isolated Firestore document
+- Consistent user IDs prevent data cross-contamination
+- Proper authentication state management prevents session bleeding
+
+### Migration Strategy
+- Existing data will be automatically migrated to the new structure
+- Old shared documents will be preserved but not actively used
+- Users will need to log out and log back in to get consistent user IDs
+
+### Testing Required
+1. **Cross-device testing**: Verify Ola's tasks on her phone are only visible to Ola
+2. **Account switching**: Ensure no data leakage when switching users on same device  
+3. **Sync verification**: Confirm real-time sync works with separated data
+4. **Overview page**: Verify "瞧瞧妳的" page shows correct data for both users
+
+## Previous Troubleshooting Information
+
+### Firebase Configuration Status
+✅ Firebase is properly configured
+✅ Firestore rules allow authenticated read/write access  
+✅ Authentication is working with custom username system
+
+### Data Storage Structure (Updated)
+Each user now has their own document in the `users` collection:
+- Sun: `/users/user-streak-app-sun`
+- Ola: `/users/user-streak-app-ola`
+
+### Common Issues
+
+#### Real-time Sync Not Working
+**Symptoms:** Changes made on one device don't appear on another device
+**Possible Causes:**
+1. User not logged in to Firebase
+2. Offline mode
+3. Network connectivity issues
+4. Firebase listener not properly set up
+
+**Solutions:**
+1. Check authentication status in console
+2. Verify internet connection
+3. Restart the app
+4. Check browser console for error messages
+
+#### Data Not Saving to Cloud
+**Symptoms:** Data saves locally but doesn't sync to Firestore
+**Possible Causes:**
+1. Authentication expired
+2. Firestore rules blocking writes
+3. Network issues
+
+**Solutions:**
+1. Log out and log back in
+2. Check browser developer tools for network errors
+3. Verify Firestore rules allow write access
+
+#### Offline Mode Issues
+**Symptoms:** App not working without internet connection
+**Current Status:** 
+- ✅ Local storage works offline
+- ✅ Data syncs when connection restored
+- ✅ Graceful fallback to localStorage
+
+#### Performance Issues
+**Symptoms:** Slow loading or sync delays
+**Optimizations:**
+- Real-time listeners for immediate updates
+- Local storage caching
+- Batch operations for better performance
+
+### Debug Commands
+
+#### Check Current User Authentication
+```javascript
+// In browser console
+console.log('Current user:', getCurrentUser());
+console.log('Current username:', getCurrentUsername());
+console.log('Current user ID:', getCurrentUserId());
+```
+
+#### Force Cloud Sync
+```javascript
+// In browser console  
+forceSyncFromCloud().then(result => console.log('Sync result:', result));
+```
+
+#### Check Data Structure
+```javascript
+// In browser console
+loadUserData().then(data => console.log('Current user data:', data));
+loadOverviewData().then(data => console.log('Overview data:', data));
+```
+
+### Contact Information
+If issues persist after trying these solutions, collect the following information:
+1. Browser console errors
+2. Steps to reproduce the issue  
+3. Device and browser information
+4. Whether the issue occurs on multiple devices
+
+---
+**Last Updated:** 2024-12-27
+**Critical Update:** User data separation implemented 
