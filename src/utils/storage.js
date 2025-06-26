@@ -243,28 +243,33 @@ export const calculateCurrentStreak = (userData, user) => {
   if (allDates.length === 0) return 0;
 
   let currentStreak = 0;
+  let checkDate = new Date(today);
   
-  // Start from today and go backwards
-  for (let i = 0; i < allDates.length; i++) {
-    const dateStr = allDates[i];
-    const dateObj = new Date(dateStr);
-    const daysDiff = Math.floor((today - dateObj) / (1000 * 60 * 60 * 24));
+  // Start from today and go backwards day by day
+  while (true) {
+    const checkDateStr = formatDate(checkDate);
+    const todos = userTodos[checkDateStr];
     
-    // Skip if this is not consecutive (there's a gap)
-    if (daysDiff !== i) {
+    // If no todos for this date, break the streak
+    if (!todos || todos.length === 0) {
       break;
     }
     
-    const todos = userTodos[dateStr];
-    if (!todos || todos.length === 0) {
-      break; // No todos = streak breaks
+    // If completion rate is too low, break the streak
+    const completionRate = calculateCompletionRate(todos);
+    if (completionRate < 80) {
+      break;
     }
     
-    const completionRate = calculateCompletionRate(todos);
-    if (completionRate >= 80) {
-      currentStreak++;
-    } else {
-      break; // Completion rate too low = streak breaks
+    // This day counts towards the streak
+    currentStreak++;
+    
+    // Move to the previous day
+    checkDate.setDate(checkDate.getDate() - 1);
+    
+    // Safety check to prevent infinite loops (don't go back more than 365 days)
+    if (currentStreak > 365) {
+      break;
     }
   }
   
