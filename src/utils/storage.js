@@ -235,6 +235,7 @@ export const getCurrentMonthProgress = (userData, user) => {
 export const calculateCurrentStreak = (userData, user) => {
   const userTodos = userData[user]?.todos || {};
   const today = getGMT8Date();
+  const todayStr = formatDate(today);
   
   // Get all dates that have todos, sorted from newest to oldest
   const allDates = Object.keys(userTodos)
@@ -244,20 +245,38 @@ export const calculateCurrentStreak = (userData, user) => {
 
   let currentStreak = 0;
   let checkDate = new Date(today);
+  let isFirstCheck = true; // Track if we're checking today
   
   // Start from today and go backwards day by day
   while (true) {
     const checkDateStr = formatDate(checkDate);
     const todos = userTodos[checkDateStr];
+    const isToday = checkDateStr === todayStr;
     
-    // If no todos for this date, break the streak
+    // If no todos for this date
     if (!todos || todos.length === 0) {
+      // If this is today, skip it (don't break the streak yet, give user time to complete)
+      if (isToday) {
+        // Move to yesterday and continue
+        checkDate.setDate(checkDate.getDate() - 1);
+        isFirstCheck = false;
+        continue;
+      }
+      // If this is a past day, break the streak
       break;
     }
     
-    // If completion rate is too low, break the streak
+    // If completion rate is too low
     const completionRate = calculateCompletionRate(todos);
     if (completionRate < 80) {
+      // If this is today, skip it (don't break the streak yet, give user time to complete)
+      if (isToday) {
+        // Move to yesterday and continue
+        checkDate.setDate(checkDate.getDate() - 1);
+        isFirstCheck = false;
+        continue;
+      }
+      // If this is a past day, break the streak
       break;
     }
     
@@ -266,6 +285,7 @@ export const calculateCurrentStreak = (userData, user) => {
     
     // Move to the previous day
     checkDate.setDate(checkDate.getDate() - 1);
+    isFirstCheck = false;
     
     // Safety check to prevent infinite loops (don't go back more than 365 days)
     if (currentStreak > 365) {
