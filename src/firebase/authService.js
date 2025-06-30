@@ -27,7 +27,25 @@ export const signInWithUserPassword = async (username, password) => {
       return { user: null, error: 'Incorrect password' };
     }
 
-    console.log('Password and username validated, attempting Firebase anonymous auth...');
+    console.log('Password and username validated');
+    
+    // If Firebase auth is not available, return a mock user
+    if (!auth) {
+      console.log('Firebase not available, using local authentication only');
+      const mockUser = {
+        uid: `local-${username}`,
+        customUsername: username.toLowerCase(),
+        displayName: username.charAt(0).toUpperCase() + username.slice(1),
+        isAnonymous: true
+      };
+      
+      // Store username in localStorage for persistence
+      localStorage.setItem('customUsername', username.toLowerCase());
+      
+      return { user: mockUser, error: null };
+    }
+
+    console.log('Attempting Firebase anonymous auth...');
 
     // Use anonymous authentication to get a Firebase user
     const userCredential = await signInAnonymously(auth);
@@ -102,7 +120,11 @@ export const logOut = async () => {
   try {
     // Clear custom username from localStorage
     localStorage.removeItem('customUsername');
-    await signOut(auth);
+    
+    if (auth) {
+      await signOut(auth);
+    }
+    
     return { error: null };
   } catch (error) {
     return { error: error.message };
@@ -111,6 +133,25 @@ export const logOut = async () => {
 
 // Listen to authentication state changes
 export const onAuthChange = (callback) => {
+  if (!auth) {
+    // If Firebase auth is not available, check localStorage for logged in user
+    const storedUsername = localStorage.getItem('customUsername');
+    if (storedUsername) {
+      const mockUser = {
+        uid: `local-${storedUsername}`,
+        customUsername: storedUsername,
+        displayName: storedUsername.charAt(0).toUpperCase() + storedUsername.slice(1),
+        isAnonymous: true
+      };
+      callback(mockUser);
+    } else {
+      callback(null);
+    }
+    
+    // Return a no-op unsubscribe function
+    return () => {};
+  }
+  
   return onAuthStateChanged(auth, (user) => {
     if (user) {
       // If user exists and we have a stored username, add it to the user object
@@ -126,5 +167,5 @@ export const onAuthChange = (callback) => {
 
 // Get current user
 export const getCurrentUser = () => {
-  return auth.currentUser;
+  return auth ? auth.currentUser : null;
 }; 

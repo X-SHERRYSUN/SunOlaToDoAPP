@@ -24,12 +24,9 @@ function App() {
         // First, try to migrate any old user-specific data
         await migrateFromOldStructure();
         
-        // Set up real-time listener for shared data
+        // Set up real-time listener for shared data  
         const realtimeUnsub = await setupRealtimeListener('shared', (data) => {
-          console.log('Real-time shared data update received:');
-          console.log('- incoming data:', data);
-          console.log('- current userData state:', userData);
-          console.log('- currentUser:', currentUser);
+          console.log('Real-time shared data update received');
           setUserData(data);
         }, user.customUsername);
         
@@ -150,11 +147,15 @@ function App() {
       console.log('- currentData before update:', currentData);
       newData = newDataOrUpdater(currentData);
       console.log('- newData after functional update:', newData);
-      setUserData(newData);
     } else {
       // Handle direct data update
       newData = newDataOrUpdater;
       console.log('- newData direct update:', newData);
+    }
+    
+    // Only update local state if we don't have a real-time listener active
+    // If we have Firebase real-time listener, it will update the state when cloud save completes
+    if (!firebaseUser) {
       setUserData(newData);
     }
     

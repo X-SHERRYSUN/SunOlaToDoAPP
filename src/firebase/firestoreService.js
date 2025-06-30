@@ -15,6 +15,11 @@ const SHARED_DOC_ID = 'sun-ola-shared-data';
 
 // Get user data from Firestore for all users (always returns shared data)
 export const getUserData = async (userId, username = null) => {
+  if (!db) {
+    console.log('Firestore not available, returning null');
+    return { data: null, error: 'Firestore not initialized' };
+  }
+  
   try {
     console.log('Getting shared data from document:', SHARED_DOC_ID);
     const sharedDocRef = doc(db, 'shared-data', SHARED_DOC_ID);
@@ -38,6 +43,11 @@ export const getUserData = async (userId, username = null) => {
 
 // Save user data to Firestore (always save to shared document)
 export const saveUserData = async (userId, userData, username = null) => {
+  if (!db) {
+    console.log('Firestore not available, skipping save');
+    return { error: 'Firestore not initialized' };
+  }
+  
   try {
     console.log('Saving data to shared document:', SHARED_DOC_ID);
     const sharedDocRef = doc(db, 'shared-data', SHARED_DOC_ID);
@@ -103,6 +113,14 @@ export const updateUserData = async (userId, updates, username = null) => {
 
 // Listen to real-time updates for shared data
 export const listenToUserData = (userId, callback, username = null) => {
+  if (!db) {
+    console.log('Firestore not available, skipping real-time listener');
+    // Call callback with null to indicate no real-time updates
+    callback({ data: null, error: 'Firestore not initialized' });
+    // Return a no-op unsubscribe function
+    return () => {};
+  }
+  
   console.log('Setting up listener for shared document:', SHARED_DOC_ID);
   const sharedDocRef = doc(db, 'shared-data', SHARED_DOC_ID);
   

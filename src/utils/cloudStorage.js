@@ -24,7 +24,8 @@ import {
   getGMT8Date,
   formatDate,
   getDetailedDate,
-  getDisplayDate
+  getDisplayDate,
+  resetCorruptedRewards
 } from './storage';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
@@ -97,9 +98,7 @@ export const saveUserData = async (data) => {
   const user = getCurrentUser();
   const username = getCurrentUsername();
   
-  console.log('cloudStorage saveUserData called:');
-  console.log('- username:', username);
-  console.log('- data:', data);
+  console.log('Saving data to cloud for username:', username);
   
   // Ensure data has the complete structure for both users
   const completeData = {
@@ -346,6 +345,46 @@ export const forceSyncFromCloud = async () => {
   }
 };
 
+// Reset corrupted cloud data
+export const resetCloudData = async () => {
+  const user = getCurrentUser();
+  if (!user || !navigator.onLine) {
+    return { error: 'User not authenticated or offline' };
+  }
+  
+  try {
+    console.log('Resetting corrupted cloud data...');
+    
+    // Get current clean local data
+    const localData = loadLocalData();
+    
+    // Clean up any corrupted fields
+    const cleanData = resetCorruptedRewards(localData);
+    
+    // Remove any premature monthly settlements
+    ['sun', 'ola'].forEach(user => {
+      if (cleanData[user]?.monthlyStreaks) {
+        const currentMonth = getMonthKey(getGMT8Date());
+        // Remove current month from settlements (shouldn't be settled yet)
+        delete cleanData[user].monthlyStreaks[currentMonth];
+      }
+    });
+    
+    // Save the clean data to cloud
+    const { error } = await saveFirestoreData('shared', cleanData, getCurrentUsername());
+    
+    if (error) {
+      return { error };
+    }
+    
+    console.log('Cloud data reset successfully');
+    return { data: cleanData, error: null };
+  } catch (error) {
+    console.error('Cloud reset failed:', error);
+    return { error: error.message };
+  }
+};
+
 // Export all the existing utility functions
 export {
   calculateCompletionRate,
@@ -363,5 +402,7 @@ export {
   getGMT8Date,
   formatDate,
   getDetailedDate,
-  getDisplayDate
+  getDisplayDate,
+  resetCorruptedRewards,
+  resetCloudData
 }; 

@@ -46,7 +46,8 @@ const Dashboard = ({ currentUser, userData, firebaseUser, onLogout, onUpdateData
         onUpdateData(settledData);
       }
     }
-  }, [userData, currentUser, onUpdateData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userData, currentUser]); // Removed onUpdateData to prevent infinite loop
 
   const handleDateSelect = (date) => {
     setCurrentDate(date);

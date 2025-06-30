@@ -27,26 +27,39 @@ const requiredEnvVars = [
 
 const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
 if (missingEnvVars.length > 0) {
-  console.error('Missing required environment variables:', missingEnvVars);
-  throw new Error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
+  console.warn('Missing required environment variables:', missingEnvVars);
+  console.warn('Firebase features will be disabled. The app will run in local-only mode.');
+  // Don't throw error, just log warning - app can still work with localStorage
 }
 
-console.log('Firebase configuration loaded successfully');
-console.log('Project ID:', process.env.REACT_APP_FIREBASE_PROJECT_ID);
-console.log('Auth Domain:', process.env.REACT_APP_FIREBASE_AUTH_DOMAIN);
+// Only initialize Firebase if all required environment variables are present
+let app = null;
+let db = null;
+let auth = null;
+let analytics = null;
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+if (missingEnvVars.length === 0) {
+  console.log('Firebase configuration loaded successfully');
+  console.log('Project ID:', process.env.REACT_APP_FIREBASE_PROJECT_ID);
+  console.log('Auth Domain:', process.env.REACT_APP_FIREBASE_AUTH_DOMAIN);
 
-// Initialize Firestore Database
-export const db = getFirestore(app);
+  // Initialize Firebase
+  app = initializeApp(firebaseConfig);
 
-// Initialize Firebase Authentication
-export const auth = getAuth(app);
+  // Initialize Firestore Database
+  db = getFirestore(app);
 
-// Initialize Analytics (optional)
-export const analytics = getAnalytics(app);
+  // Initialize Firebase Authentication
+  auth = getAuth(app);
 
-console.log('Firebase services initialized successfully');
+  // Initialize Analytics (optional)
+  analytics = getAnalytics(app);
+
+  console.log('Firebase services initialized successfully');
+} else {
+  console.log('Firebase services disabled due to missing environment variables');
+}
+
+export { db, auth, analytics };
 
 export default app; 

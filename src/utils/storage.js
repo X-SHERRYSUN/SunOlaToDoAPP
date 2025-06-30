@@ -26,8 +26,15 @@ export const loadUserData = () => {
     const data = localStorage.getItem(STORAGE_KEY);
     const loadedData = data ? JSON.parse(data) : getDefaultData();
     
-    // Ensure all users have the new properties
-    Object.keys(loadedData).forEach(user => {
+    // Ensure all users have the new properties (only process actual user objects)
+    const userKeys = Object.keys(loadedData).filter(key => 
+      typeof loadedData[key] === 'object' && 
+      loadedData[key] !== null && 
+      !Array.isArray(loadedData[key]) && 
+      ['sun', 'ola'].includes(key)
+    );
+    
+    userKeys.forEach(user => {
       if (!loadedData[user].monthlyRewards) {
         loadedData[user].monthlyRewards = 0;
       }
@@ -158,7 +165,15 @@ export const processMonthlySettlement = (userData) => {
   
   const updatedData = { ...userData };
   
-  Object.keys(updatedData).forEach(user => {
+  // Only process actual user objects, not metadata keys
+  const userKeys = Object.keys(updatedData).filter(key => 
+    typeof updatedData[key] === 'object' && 
+    updatedData[key] !== null && 
+    !Array.isArray(updatedData[key]) && 
+    ['sun', 'ola'].includes(key)
+  );
+  
+  userKeys.forEach(user => {
     const monthlyStreak = calculateCurrentMonthStreak(updatedData, user);
     const fullMonthComplete = isFullMonthComplete(updatedData, user, year, month);
     const monthlyRewards = calculateMonthlyRewards(monthlyStreak, fullMonthComplete);
@@ -187,10 +202,9 @@ export const processMonthlySettlement = (userData) => {
 
 // Calculate total accumulated rewards
 export const getTotalRewards = (userData, user) => {
-  const monthlyRewards = userData[user]?.monthlyRewards || 0;
   const monthlyStreaks = userData[user]?.monthlyStreaks || {};
   
-  // 計算所有月份的獎勵總和
+  // 計算所有已完成月份的獎勵總和
   const totalFromMonths = Object.values(monthlyStreaks)
     .reduce((sum, month) => sum + (month.rewards || 0), 0);
   
@@ -202,7 +216,8 @@ export const getTotalRewards = (userData, user) => {
   const fullMonthComplete = isFullMonthComplete(userData, user, year, month);
   const currentMonthPotentialRewards = calculateMonthlyRewards(currentMonthStreak, fullMonthComplete);
   
-  return Math.max(monthlyRewards, totalFromMonths) + currentMonthPotentialRewards;
+  // 只使用計算出來的值，不使用可能損壞的舊 monthlyRewards 欄位
+  return totalFromMonths + currentMonthPotentialRewards;
 };
 
 // Get current month progress
@@ -245,7 +260,6 @@ export const calculateCurrentStreak = (userData, user) => {
 
   let currentStreak = 0;
   let checkDate = new Date(today);
-  let isFirstCheck = true; // Track if we're checking today
   
   // Start from today and go backwards day by day
   while (true) {
@@ -259,7 +273,6 @@ export const calculateCurrentStreak = (userData, user) => {
       if (isToday) {
         // Move to yesterday and continue
         checkDate.setDate(checkDate.getDate() - 1);
-        isFirstCheck = false;
         continue;
       }
       // If this is a past day, break the streak
@@ -273,7 +286,6 @@ export const calculateCurrentStreak = (userData, user) => {
       if (isToday) {
         // Move to yesterday and continue
         checkDate.setDate(checkDate.getDate() - 1);
-        isFirstCheck = false;
         continue;
       }
       // If this is a past day, break the streak
@@ -285,7 +297,6 @@ export const calculateCurrentStreak = (userData, user) => {
     
     // Move to the previous day
     checkDate.setDate(checkDate.getDate() - 1);
-    isFirstCheck = false;
     
     // Safety check to prevent infinite loops (don't go back more than 365 days)
     if (currentStreak > 365) {
@@ -399,4 +410,35 @@ export const getDisplayDate = (date) => {
   const day = gmt8Date.getDate();
   
   return `${weekday} ${month}${day}日`;
+};
+
+// Debug and reset corrupted reward data
+export const resetCorruptedRewards = (userData) => {
+  const updatedData = { ...userData };
+  
+  // Reset corrupted monthlyRewards fields for all users
+  ['sun', 'ola'].forEach(user => {
+    if (updatedData[user]) {
+      console.log(`Before reset - ${user} monthlyRewards:`, updatedData[user].monthlyRewards);
+      console.log(`Before reset - ${user} monthlyStreaks:`, updatedData[user].monthlyStreaks);
+      
+      // Remove the potentially corrupted monthlyRewards field
+      delete updatedData[user].monthlyRewards;
+      
+      // Clean up any invalid entries in monthlyStreaks
+      if (updatedData[user].monthlyStreaks) {
+        const validMonthlyStreaks = {};
+        Object.entries(updatedData[user].monthlyStreaks).forEach(([monthKey, monthData]) => {
+          if (monthData && typeof monthData === 'object' && monthData.rewards !== undefined) {
+            validMonthlyStreaks[monthKey] = monthData;
+          }
+        });
+        updatedData[user].monthlyStreaks = validMonthlyStreaks;
+      }
+      
+      console.log(`After reset - ${user} total rewards:`, getTotalRewards(updatedData, user));
+    }
+  });
+  
+  return updatedData;
 }; 
